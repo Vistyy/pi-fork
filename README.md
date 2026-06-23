@@ -20,7 +20,7 @@ pi -e /home/syzom/projects/pi-extensions/pi-fork
 ## Install from GitHub
 
 ```bash
-pi install git:github.com/Vistyy/pi-fork@v0.1.0
+pi install git:github.com/Vistyy/pi-fork@v0.1.1
 ```
 
 ## Tool

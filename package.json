@@ -1,6 +1,6 @@
 {
   "name": "pi-fork",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pi package for focused child-agent forks.",
   "private": true,
   "type": "module",
@@ -24,7 +24,9 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "fork-agent-evals": "tsx eval/src/cli/fork-agent-evals.ts",
+    "fork-prompt-evals": "tsx eval/src/cli/fork-prompt-evals.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",
@@ -41,6 +43,7 @@
     "@types/node": "^25.9.1",
     "typebox": "*",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "tsx": "^4.22.4"
   }
 }
