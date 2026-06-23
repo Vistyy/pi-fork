@@ -20,7 +20,7 @@ pi -e /home/syzom/projects/pi-extensions/pi-fork
 ## Install from GitHub
 
 ```bash
-pi install git:github.com/Vistyy/pi-fork@v0.1.1
+pi install git:github.com/Vistyy/pi-fork@v0.1.2
 ```
 
 ## Tool
@@ -99,7 +99,7 @@ This is a workflow guardrail for exploratory fork work, not a security boundary 
 This does two things:
 
 - `--tools` removes `edit` and `write` from the child process.
-- `sandbox.ts` wraps `bash` with bwrap so the repo is mounted read-only, the configured temp dir is writable, inherited environment variables are cleared, and shell network follows `pi-fork.sandbox.bashNetwork`.
+- `sandbox.ts` wraps `bash` with bwrap so the repo is mounted read-only, a per-fork temp dir is writable, inherited environment variables are cleared, and shell network follows `pi-fork.sandbox.bashNetwork`.
 
 The sandbox hook must be present in `pi-fork.extensions`.
 If a project overrides `pi-fork.extensions`, include `~/projects/pi-extensions/pi-fork/sandbox.ts` there too or the bash hook will not load.
@@ -119,7 +119,9 @@ Sandbox defaults:
 
 `bashNetwork: false` isolates sandboxed `bash` from the host network. Set it to `true` to add `bwrap --share-net`, for example when a fork needs `git clone` or package-manager fetches. This is separate from `offline`.
 
-`tmpDir` controls writable `TMPDIR` for sandboxed `bash` and must be under `/tmp` or `/var/tmp`. Child prompts mention this directory so fork agents know where to put scratch files, downloads, clones, and quick experiments.
+`tmpDir` controls the parent directory used to create a per-fork writable `TMPDIR` and must be under `/tmp` or `/var/tmp`.
+Child prompts mention the generated per-fork directory so fork agents know where to put scratch files, downloads, clones, and quick experiments.
+The same path is visible to sandboxed `bash` and host-mediated child tools such as `read`.
 
 `web_search`, `web_fetch`, and `web_content_get` are host-mediated text tools. They still work with shell network disabled because they are not run inside sandboxed `bash`. They fetch/extract/store text; they do not execute page JavaScript or fetched scripts.
 

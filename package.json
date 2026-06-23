@@ -1,6 +1,6 @@
 {
   "name": "pi-fork",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pi package for focused child-agent forks.",
   "private": true,
   "type": "module",

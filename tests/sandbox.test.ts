@@ -1,4 +1,4 @@
-import { mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -108,6 +108,26 @@ describe("sandbox command wrapper", () => {
     ]));
     expect(wrapped).toContain("--dir \\\n  /tmp/pi-fork");
     expect(wrapped).toContain("TMPDIR \\\n  /tmp/pi-fork");
+  });
+
+  it("binds a per-fork host tmp dir to the configured tmp dir", () => {
+    const hostTmpDir = mkdtempSync(join(tmpdir(), "pi-fork-host-tmp-"));
+
+    try {
+      const args = buildBwrapArgs({ tmpDir: "/tmp/pi-fork", hostTmpDir });
+      const wrapped = buildSandboxedCommand("mktemp -d", { tmpDir: "/tmp/pi-fork", hostTmpDir });
+      const realHostTmpDir = realpathSync(hostTmpDir);
+
+      expect(args).toEqual(expect.arrayContaining([
+        "--tmpfs", "/tmp",
+        "--dir", "/tmp/pi-fork",
+        "--bind", realHostTmpDir, "/tmp/pi-fork",
+        "--setenv", "TMPDIR", "/tmp/pi-fork",
+      ]));
+      expect(wrapped).toContain(`--bind \\\n  ${realHostTmpDir} \\\n  /tmp/pi-fork`);
+    } finally {
+      rmSync(hostTmpDir, { recursive: true, force: true });
+    }
   });
 
   it("single-quotes commands safely", () => {

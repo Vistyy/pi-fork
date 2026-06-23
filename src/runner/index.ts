@@ -10,9 +10,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import { buildChildEnv } from "./env.js";
+import { buildChildEnv, PI_FORK_SANDBOX_HOST_TMPDIR_ENV, PI_FORK_SANDBOX_TMPDIR_ENV } from "./env.js";
 import { buildForkTaskPrompt } from "./prompt.js";
-import type { ForkSandboxConfig } from "../config.js";
+import { DEFAULT_SANDBOX_CONFIG, type ForkSandboxConfig } from "../config.js";
 import { compactForkSessionWithOmInSubprocess } from "./om-compact-preflight.js";
 import { type ForkDetails, type ForkEffort, type ForkEffortProfile, type ForkEffortState, type ForkResult, emptyUsage, normalizeCompletedResult } from "../core/types.js";
 import type { ForkSessionSnapshotMode } from "../session-snapshot.js";
@@ -33,6 +33,11 @@ export function resolvePiSpawn(): { command: string; prefixArgs: string[] } {
 function createForkSessionTempFile(): { dir: string; filePath: string } {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-fork-"));
   return { dir: tmpDir, filePath: path.join(tmpDir, "fork.jsonl") };
+}
+
+function createForkSandboxTempDir(baseTmpDir: string): string {
+  fs.mkdirSync(baseTmpDir, { recursive: true, mode: 0o700 });
+  return fs.mkdtempSync(path.join(baseTmpDir, "pi-fork-sandbox-"));
 }
 
 function cleanupTempDir(dir: string | null): void {
@@ -195,11 +200,16 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
 
   let forkSessionTmpDir: string | null = null;
   let forkSessionTmpPath: string | null = null;
-  const tmp = createForkSessionTempFile();
-  forkSessionTmpDir = tmp.dir;
-  forkSessionTmpPath = tmp.filePath;
+  let forkSandboxTmpDir: string | null = null;
+  const configuredSandbox = sandbox || DEFAULT_SANDBOX_CONFIG;
 
   try {
+    const tmp = createForkSessionTempFile();
+    forkSessionTmpDir = tmp.dir;
+    forkSessionTmpPath = tmp.filePath;
+    forkSandboxTmpDir = createForkSandboxTempDir(configuredSandbox.tmpDir);
+    const effectiveSandbox = { ...configuredSandbox, tmpDir: forkSandboxTmpDir };
+
     try {
       if (writeForkSessionSnapshot) {
         if (!writeForkSessionSnapshot(forkSessionTmpPath)) {
@@ -225,7 +235,12 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
       }
     }
 
-    const piArgs = buildPiArgs(task, forkSessionTmpPath, extensions, effort?.profile, inheritedCliArgs, effort?.selected, tools, sandbox);
+    const piArgs = buildPiArgs(task, forkSessionTmpPath, extensions, effort?.profile, inheritedCliArgs, effort?.selected, tools, effectiveSandbox);
+    const childEnvironment = {
+      ...environment,
+      [PI_FORK_SANDBOX_HOST_TMPDIR_ENV]: forkSandboxTmpDir,
+      [PI_FORK_SANDBOX_TMPDIR_ENV]: effectiveSandbox.tmpDir,
+    };
     let wasAborted = false;
 
     const exitCode = await new Promise<number>((resolve) => {
@@ -234,7 +249,7 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
         cwd,
         shell: false,
         stdio: ["pipe", "pipe", "pipe"],
-        env: buildChildEnv(environment, process.env, process.platform, offline),
+        env: buildChildEnv(childEnvironment, process.env, process.platform, offline),
       });
 
       proc.stdin.on("error", () => {
@@ -325,5 +340,6 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
     return normalizeCompletedResult(result, wasAborted);
   } finally {
     cleanupTempDir(forkSessionTmpDir);
+    cleanupTempDir(forkSandboxTmpDir);
   }
 }

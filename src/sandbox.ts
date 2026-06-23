@@ -1,6 +1,8 @@
 import { existsSync, realpathSync } from "node:fs";
+import * as path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_SANDBOX_CONFIG, loadConfig, type ForkSandboxConfig } from "./config.js";
+import { PI_FORK_SANDBOX_HOST_TMPDIR_ENV, PI_FORK_SANDBOX_TMPDIR_ENV } from "./runner/env.js";
 
 const RAW_SHELL_ARGS = new Set([
   "$PWD",
@@ -19,6 +21,11 @@ const CA_BUNDLE_ENV_KEYS = [
   "REQUESTS_CA_BUNDLE",
   "NODE_EXTRA_CA_CERTS",
 ];
+
+export interface ForkSandboxRuntimeConfig extends ForkSandboxConfig {
+  /** Host temp directory bound to tmpDir for the lifetime of one fork. */
+  hostTmpDir?: string;
+}
 
 function defaultCaBundleCandidates(): string[] {
   return [
@@ -60,16 +67,78 @@ function shellArg(value: string): string {
   return /^[A-Za-z0-9_@%+=:,./-]+$/.test(value) ? value : shellQuote(value);
 }
 
-function resolveSandboxConfig(overrides: Partial<ForkSandboxConfig> = {}): ForkSandboxConfig {
+function isSandboxTmpDir(value: string): boolean {
+  return value === "/tmp" || value.startsWith("/tmp/") || value === "/var/tmp" || value.startsWith("/var/tmp/");
+}
+
+function normalizeSandboxTmpDir(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const tmpDir = path.posix.normalize(value.trim());
+  return isSandboxTmpDir(tmpDir) ? tmpDir : undefined;
+}
+
+function resolveHostTmpDir(value: string | undefined): string | undefined {
+  if (!value || !path.isAbsolute(value)) return undefined;
+  try {
+    return existsSync(value) ? realpathSync(value) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveSandboxConfig(overrides: Partial<ForkSandboxRuntimeConfig> = {}): ForkSandboxRuntimeConfig {
   return { ...DEFAULT_SANDBOX_CONFIG, ...overrides };
+}
+
+function runtimeSandboxConfig(baseConfig: ForkSandboxConfig): ForkSandboxRuntimeConfig {
+  const tmpDir = normalizeSandboxTmpDir(process.env[PI_FORK_SANDBOX_TMPDIR_ENV]) || baseConfig.tmpDir;
+  const hostTmpDir = resolveHostTmpDir(process.env[PI_FORK_SANDBOX_HOST_TMPDIR_ENV]);
+  return { ...baseConfig, tmpDir, hostTmpDir };
+}
+
+function dirArgsForPath(dir: string): string[] {
+  const parts = dir.split("/").filter(Boolean);
+  const dirs: string[] = [];
+  let current = "";
+
+  for (const part of parts) {
+    current += `/${part}`;
+    if (current !== "/tmp" && current !== "/var" && current !== "/var/tmp") dirs.push(current);
+  }
+
+  return dirs.flatMap((value) => ["--dir", value]);
 }
 
 function tmpDirArgs(tmpDir: string): string[] {
   if (["/tmp", "/var/tmp", "/tmp/home"].includes(tmpDir)) return [];
-  return ["--dir", tmpDir];
+  return dirArgsForPath(tmpDir);
 }
 
-export function buildBwrapArgs(sandboxConfig: Partial<ForkSandboxConfig> = {}): string[] {
+function writableTmpMountArgs(config: ForkSandboxRuntimeConfig): string[] {
+  const hostTmpDir = resolveHostTmpDir(config.hostTmpDir);
+  if (!hostTmpDir) {
+    return [
+      "--tmpfs", "/tmp",
+      "--tmpfs", "/var/tmp",
+      ...tmpDirArgs(config.tmpDir),
+    ];
+  }
+
+  const args: string[] = [];
+  if (config.tmpDir === "/tmp") args.push("--bind", hostTmpDir, "/tmp");
+  else args.push("--tmpfs", "/tmp");
+
+  if (config.tmpDir === "/var/tmp") args.push("--bind", hostTmpDir, "/var/tmp");
+  else args.push("--tmpfs", "/var/tmp");
+
+  if (config.tmpDir !== "/tmp" && config.tmpDir !== "/var/tmp") {
+    args.push(...dirArgsForPath(config.tmpDir), "--bind", hostTmpDir, config.tmpDir);
+  }
+
+  return args;
+}
+
+export function buildBwrapArgs(sandboxConfig: Partial<ForkSandboxRuntimeConfig> = {}): string[] {
   const config = resolveSandboxConfig(sandboxConfig);
   const caBundlePath = resolveCaBundlePath();
   return [
@@ -94,11 +163,9 @@ export function buildBwrapArgs(sandboxConfig: Partial<ForkSandboxConfig> = {}): 
     "--ro-bind-try", "/run/current-system", "/run/current-system",
     "--proc", "/proc",
     "--dev", "/dev",
-    "--tmpfs", "/tmp",
+    ...writableTmpMountArgs(config),
     ...caBundleBindArgs(caBundlePath),
-    "--tmpfs", "/var/tmp",
-    ...tmpDirArgs(config.tmpDir),
-    "--dir", "/tmp/home",
+    ...(config.tmpDir === "/tmp/home" ? [] : ["--dir", "/tmp/home"]),
     "--ro-bind", "$PWD", "$PWD",
     "--chdir", "$PWD",
     "--clearenv",
@@ -126,7 +193,7 @@ ${renderedArgs}
 
 export function buildSandboxedCommand(
   command: string,
-  sandboxConfig: Partial<ForkSandboxConfig> = {},
+  sandboxConfig: Partial<ForkSandboxRuntimeConfig> = {},
 ): string {
   return renderBwrapCommand(buildBwrapArgs(sandboxConfig), command);
 }
@@ -142,7 +209,8 @@ export default function (pi: ExtensionAPI): void {
 
     if (event.toolName === "bash") {
       const command = typeof event.input?.command === "string" ? event.input.command : "";
-      event.input.command = buildSandboxedCommand(command, loadConfig(process.cwd()).sandbox);
+      const config = runtimeSandboxConfig(loadConfig(process.cwd()).sandbox);
+      event.input.command = buildSandboxedCommand(command, config);
     }
 
     return undefined;
