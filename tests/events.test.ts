@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getResultSummaryText, processPiJsonLine } from "../src/child-events/index.js";
+import { getChildProgressText, getResultSummaryText, processPiJsonLine } from "../src/child-events/index.js";
 import { emptyUsage, type ForkResult } from "../src/core/types.js";
 
 function result(): ForkResult {
@@ -53,6 +53,36 @@ describe("runner event parsing", () => {
       }),
     ]);
     expect("toolExecutions" in r).toBe(false);
+  });
+
+  it("shows thinking progress with chunk counts", () => {
+    const r = result();
+
+    processPiJsonLine(JSON.stringify({
+      type: "message_update",
+      assistantMessageEvent: { type: "thinking_start" },
+    }), r);
+    processPiJsonLine(JSON.stringify({
+      type: "message_update",
+      assistantMessageEvent: { type: "thinking_delta" },
+    }), r);
+    processPiJsonLine(JSON.stringify({
+      type: "message_update",
+      assistantMessageEvent: { type: "thinking_delta" },
+    }), r);
+    processPiJsonLine(JSON.stringify({
+      type: "message_update",
+      assistantMessageEvent: { type: "thinking_end" },
+    }), r);
+
+    expect(r.activities).toEqual([
+      expect.objectContaining({
+        type: "thinking",
+        status: "completed",
+        deltaCount: 2,
+      }),
+    ]);
+    expect(getChildProgressText(r)).toBe("✓ thinking (2 chunks)");
   });
 
   it("ignores malformed JSON lines", () => {

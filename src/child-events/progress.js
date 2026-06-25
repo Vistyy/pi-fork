@@ -10,13 +10,14 @@ function formatToolStatusIcon(tool) {
 function formatToolErrorSuffix(tool) {
   if (tool?.status !== "error" && !tool?.isError) return "";
   if (typeof tool.latestText !== "string" || !tool.latestText.trim()) return "";
-  return ` — ${truncateInline(tool.latestText, MAX_INLINE_ERROR_PREVIEW_CHARS)}`;
+  return ` - ${truncateInline(tool.latestText, MAX_INLINE_ERROR_PREVIEW_CHARS)}`;
 }
 
 function formatThinkingActivityProgress(thinking) {
   if (!thinking || typeof thinking !== "object") return "";
   const icon = thinking.status === "running" ? "…" : "✓";
-  const label = thinking.status === "running" ? "thinking..." : "thinking";
+  const count = typeof thinking.deltaCount === "number" && thinking.deltaCount > 0 ? ` (${thinking.deltaCount} chunks)` : "";
+  const label = thinking.status === "running" ? `thinking...${count}` : `thinking${count}`;
   return `${icon} ${label}`;
 }
 
@@ -58,7 +59,7 @@ function formatActivityProgressList(result) {
   return lines.join("\n").trim();
 }
 
-export function getForkProgressText(result) {
+export function getChildProgressText(result) {
   const retryProgress = formatRetryProgress(result?.retry);
   if (retryProgress) return retryProgress;
 

@@ -153,11 +153,13 @@ function processMessageUpdateEvent(event, result) {
       const currentLatest = latestActivity(result);
       const activity = currentLatest?.type === "thinking" && currentLatest.status === "running" ? currentLatest : createThinkingActivity(result);
       activity.status = "running";
+      if (typeof activity.deltaCount !== "number") activity.deltaCount = 0;
       return true;
     }
     case "thinking_delta": {
       const activity = ensureLatestThinkingActivity(result);
       activity.status = "running";
+      activity.deltaCount = typeof activity.deltaCount === "number" ? activity.deltaCount + 1 : 1;
       return true;
     }
     case "thinking_end": {
@@ -266,4 +268,4 @@ export function processPiJsonLine(line, result) {
 }
 
 export { getFinalAssistantText, getResultSummaryText } from "./text.js";
-export { getForkProgressText } from "./progress.js";
+export { getChildProgressText } from "./progress.js";

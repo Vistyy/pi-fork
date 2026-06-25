@@ -126,7 +126,7 @@ function toolLabel(tool: any): string {
 function toolErrorSuffix(tool: any, fg: (color: any, text: string) => string): string {
   if (tool?.status !== "error" && !tool?.isError) return "";
   if (typeof tool.latestText !== "string" || !tool.latestText.trim()) return "";
-  return fg("error", ` — ${inlinePreview(tool.latestText)}`);
+  return fg("error", ` - ${inlinePreview(tool.latestText)}`);
 }
 
 function latestToolWithPreview(result: ForkResult): any | undefined {
@@ -141,7 +141,8 @@ function latestToolWithPreview(result: ForkResult): any | undefined {
 function thinkingLine(thinking: any, fg: (color: any, text: string) => string): string {
   if (!thinking) return "";
   const icon = thinking.status === "running" ? fg("warning", "…") : fg("success", "✓");
-  const label = thinking.status === "running" ? "thinking..." : "thinking";
+  const count = typeof thinking.deltaCount === "number" && thinking.deltaCount > 0 ? ` (${thinking.deltaCount} chunks)` : "";
+  const label = thinking.status === "running" ? `thinking...${count}` : `thinking${count}`;
   return `${icon} ${fg("toolOutput", label)}`;
 }
 

@@ -17,7 +17,7 @@ import { compactForkSessionWithOmInSubprocess } from "./om-compact-preflight.js"
 import { type ForkDetails, type ForkEffort, type ForkEffortProfile, type ForkEffortState, type ForkResult, emptyUsage, normalizeCompletedResult } from "../core/types.js";
 import type { ForkSessionSnapshotMode } from "../session-snapshot.js";
 import { parseInheritedCliArgs } from "./cli.js";
-import { getForkProgressText, processPiJsonLine } from "../child-events/index.js";
+import { getChildProgressText, processPiJsonLine } from "../child-events/index.js";
 
 const isWindows = process.platform === "win32";
 const SIGKILL_TIMEOUT_MS = 5000;
@@ -183,7 +183,7 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
       content: [
         {
           type: "text",
-          text: getForkProgressText(result),
+          text: getChildProgressText(result),
         },
       ],
       details: makeDetails([result]),
