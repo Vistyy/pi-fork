@@ -32,7 +32,7 @@ function runtime(overrides: any = {}) {
           summary: "OM summary",
           firstKeptEntryId: "entry-1",
           tokensBefore: 123,
-          details: { type: "om.folded", reflections: [] },
+          details: { type: "om.checkpoint", checkpoint: { id: "check_111111111111", content: "# Checkpoint\n\n## Current objective\n\nKept.", contentFormat: "markdown" } },
         },
       };
     }
@@ -62,7 +62,7 @@ describe("OM compact fork preflight", () => {
 
     await applyOmCompactionToSession(rt.value as any, { prepareCompaction: () => preparation });
 
-    expect(rt.appended).toEqual([{ summary: "OM summary", firstKeptEntryId: "entry-1", tokensBefore: 123, details: { type: "om.folded", reflections: [] }, fromHook: true }]);
+    expect(rt.appended).toEqual([{ summary: "OM summary", firstKeptEntryId: "entry-1", tokensBefore: 123, details: { type: "om.checkpoint", checkpoint: { id: "check_111111111111", content: "# Checkpoint\n\n## Current objective\n\nKept.", contentFormat: "markdown" } }, fromHook: true }]);
     expect(rt.value.extensionRunner.emit).toHaveBeenCalledWith(expect.objectContaining({ type: "session_compact", compactionEntry: expect.objectContaining({ id: "compact-1" }), fromExtension: true }));
   });
 
@@ -81,11 +81,22 @@ describe("OM compact fork preflight", () => {
     await expect(applyOmCompactionToSession(rt.value as any, { prepareCompaction: () => preparation })).rejects.toThrow("observational memory did not provide compaction");
   });
 
-  it("fails when the hook does not return OM folded details", async () => {
+  it("fails when the hook does not return OM checkpoint details", async () => {
     const rt = runtime({
       extensionRunner: {
         hasHandlers: vi.fn(() => true),
         emit: vi.fn(async () => ({ compaction: { summary: "native", firstKeptEntryId: "entry-1", tokensBefore: 123, details: { readFiles: [] } } })),
+      },
+    });
+
+    await expect(applyOmCompactionToSession(rt.value as any, { prepareCompaction: () => preparation })).rejects.toThrow("observational memory did not provide compaction");
+  });
+
+  it("fails rather than preserving old OM folded compatibility", async () => {
+    const rt = runtime({
+      extensionRunner: {
+        hasHandlers: vi.fn(() => true),
+        emit: vi.fn(async () => ({ compaction: { summary: "old", firstKeptEntryId: "entry-1", tokensBefore: 123, details: { type: "om.folded", reflections: [] } } })),
       },
     });
 
@@ -121,7 +132,7 @@ describe("OM compact fork preflight", () => {
             summary: "Fake OM summary",
             firstKeptEntryId: event.preparation.firstKeptEntryId,
             tokensBefore: event.preparation.tokensBefore,
-            details: { type: "om.folded", reflections: [{ id: "ref_111111111111", content: "Kept.", sources: [] }] },
+            details: { type: "om.checkpoint", checkpoint: { id: "check_111111111111", content: "# Checkpoint\\n\\n## Current objective\\n\\nKept.", contentFormat: "markdown" } },
           },
         }));
       }
@@ -140,6 +151,6 @@ describe("OM compact fork preflight", () => {
     const compacted = readFileSync(sessionPath, "utf-8");
     expect(compacted).toContain("Fake OM summary");
     expect(compacted).toContain('"fromHook":true');
-    expect(compacted).toContain('"type":"om.folded"');
+    expect(compacted).toContain('"type":"om.checkpoint"');
   });
 });

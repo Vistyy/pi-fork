@@ -13,7 +13,7 @@ import {
   type SessionEntry,
 } from "@earendil-works/pi-coding-agent";
 
-const OM_FOLDED = "om.folded";
+const OM_CHECKPOINT = "om.checkpoint";
 const OM_COMPACT_ERROR = "Cannot fork with sessionSnapshot=\"om-compact\": observational memory did not provide compaction.";
 
 type CompactionSettings = ReturnType<SettingsManager["getCompactionSettings"]>;
@@ -55,7 +55,7 @@ function isOmCompaction(value: unknown): value is CompactionResult {
     typeof value.firstKeptEntryId === "string" &&
     typeof value.tokensBefore === "number" &&
     isRecord(value.details) &&
-    value.details.type === OM_FOLDED
+    value.details.type === OM_CHECKPOINT
   );
 }
 
