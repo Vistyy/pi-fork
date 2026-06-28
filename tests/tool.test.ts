@@ -5,7 +5,7 @@ const mockRunFork = vi.hoisted(() => vi.fn());
 vi.mock("../src/runner/index.js", () => ({ runFork: mockRunFork }));
 vi.mock("../src/config.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/config.js")>();
-  return { ...actual, loadConfig: () => ({ extensions: [], environment: {}, tools: null, offline: true, costFooter: true, sessionSnapshot: "full", defaultEffort: "balanced" }) };
+  return { ...actual, loadConfig: () => ({ extensions: [], environment: {}, tools: null, offline: true, costFooter: true, defaultEffort: "balanced" }) };
 });
 
 import { PI_FORK_CHILD_ENV } from "../src/runner/env.js";
@@ -63,11 +63,10 @@ describe("fork tool usage recording", () => {
     await execute("call-1", { task: "investigate", effort: "deep" }, undefined, undefined, {
       cwd: "/tmp/project",
       modelRegistry: { find: vi.fn() },
-      sessionManager: { getHeader: () => ({ type: "header" }), getBranch: () => [] },
+      sessionManager: { getHeader: () => ({ type: "header" }), buildSessionContext: () => ({ messages: [] }) },
     });
 
     expect(mockRunFork).toHaveBeenCalledWith(expect.objectContaining({
-      sessionSnapshot: "full",
       writeForkSessionSnapshot: expect.any(Function),
     }));
     expect(mockRunFork.mock.calls[0]?.[0]).not.toHaveProperty("forkSessionSnapshotJsonl");

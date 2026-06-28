@@ -4,7 +4,6 @@ import * as path from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ForkEffort, ForkEffortProfile } from "./core/types.js";
-import type { ForkSessionSnapshotMode } from "./session-snapshot.js";
 
 export const EFFORT_LEVELS = ["fast", "balanced", "deep"] as const;
 export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
@@ -46,12 +45,6 @@ export interface ForkConfig {
   /** Show fork cost as an extra footer status line. */
   costFooter: boolean;
 
-  /** Parent session snapshot strategy for child fork processes. */
-  sessionSnapshot: ForkSessionSnapshotMode;
-
-  /** Observational memory extension source used for sessionSnapshot="om-compact" preflight. */
-  omCompactExtension?: string;
-
   /** Effort to use when a fork call omits the effort parameter. */
   defaultEffort?: ForkEffort;
 
@@ -73,7 +66,6 @@ export const DEFAULT_CONFIG: ForkConfig = {
   offline: true,
   sandbox: DEFAULT_SANDBOX_CONFIG,
   costFooter: true,
-  sessionSnapshot: "full",
 };
 
 function isPackageSource(value: string): boolean {
@@ -164,10 +156,6 @@ function parseSandboxTmpDir(raw: unknown): string | undefined {
   if (tmpDir === "/tmp" || tmpDir.startsWith("/tmp/")) return tmpDir;
   if (tmpDir === "/var/tmp" || tmpDir.startsWith("/var/tmp/")) return tmpDir;
   return undefined;
-}
-
-function parseSessionSnapshot(raw: unknown): ForkSessionSnapshotMode | undefined {
-  return raw === "full" || raw === "om-compact" ? raw : undefined;
 }
 
 function parseSandbox(raw: unknown): Partial<ForkSandboxConfig> | undefined {
@@ -275,10 +263,6 @@ function readNamespacedConfig(settingsPath: string, baseDir: string): ParsedFork
     if (typeof config.offline === "boolean") parsed.offline = config.offline;
     if (sandbox !== undefined) parsed.sandbox = sandbox;
     if (typeof config.costFooter === "boolean") parsed.costFooter = config.costFooter;
-    const sessionSnapshot = parseSessionSnapshot(config.sessionSnapshot);
-    const omCompactExtension = parseConfiguredSource(config.omCompactExtension, baseDir);
-    if (sessionSnapshot !== undefined) parsed.sessionSnapshot = sessionSnapshot;
-    if (omCompactExtension !== undefined) parsed.omCompactExtension = omCompactExtension;
     if (defaultEffort !== undefined) parsed.defaultEffort = defaultEffort;
     if (effortProfiles !== undefined) parsed.effortProfiles = effortProfiles;
     return parsed;

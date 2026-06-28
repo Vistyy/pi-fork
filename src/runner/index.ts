@@ -13,9 +13,7 @@ import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { buildChildEnv, PI_FORK_SANDBOX_HOST_TMPDIR_ENV, PI_FORK_SANDBOX_TMPDIR_ENV } from "./env.js";
 import { buildForkTaskPrompt } from "./prompt.js";
 import { DEFAULT_SANDBOX_CONFIG, type ForkSandboxConfig } from "../config.js";
-import { compactForkSessionWithOmInSubprocess } from "./om-compact-preflight.js";
 import { type ForkDetails, type ForkEffort, type ForkEffortProfile, type ForkEffortState, type ForkResult, emptyUsage, normalizeCompletedResult } from "../core/types.js";
-import type { ForkSessionSnapshotMode } from "../session-snapshot.js";
 import { parseInheritedCliArgs } from "./cli.js";
 import { processPiJsonLine } from "../child-events/index.js";
 import { getChildProgressText } from "../child-events/progress.js";
@@ -123,8 +121,6 @@ export interface RunForkOptions {
   makeDetails: (results: ForkResult[]) => ForkDetails;
   effort?: ForkEffortState;
   resolveContextWindow?: ContextWindowResolver;
-  sessionSnapshot?: ForkSessionSnapshotMode;
-  omCompactExtension?: string;
 }
 
 export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
@@ -143,8 +139,6 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
     makeDetails,
     effort,
     resolveContextWindow,
-    sessionSnapshot = "full",
-    omCompactExtension,
   } = opts;
 
   if (!writeForkSessionSnapshot && !forkSessionSnapshotJsonl?.trim()) {
@@ -222,18 +216,6 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return failBeforeSpawn(message);
-    }
-
-    if (sessionSnapshot === "om-compact") {
-      try {
-        if (!omCompactExtension) {
-          throw new Error("Cannot fork with sessionSnapshot=\"om-compact\": pi-fork.omCompactExtension is not configured.");
-        }
-        await compactForkSessionWithOmInSubprocess({ cwd, sessionPath: forkSessionTmpPath, signal, omExtensionPath: omCompactExtension });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return failBeforeSpawn(message);
-      }
     }
 
     const piArgs = buildPiArgs(task, forkSessionTmpPath, extensions, effort?.profile, inheritedCliArgs, effort?.selected, tools, effectiveSandbox);

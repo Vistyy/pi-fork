@@ -127,25 +127,13 @@ The same path is visible to sandboxed `bash` and host-mediated child tools such 
 
 ## Session snapshot
 
-Forks use the full active session branch by default.
-Projects that also use observational memory can opt into OM-backed compact snapshots to reduce child input cost:
+Forks receive a filtered copy of Pi's current model context window.
+Before compaction, that means user messages and visible assistant text from the active context.
+After compaction, that means Pi's compaction summary plus user messages and visible assistant text since the compaction boundary.
 
-```json
-{
-  "pi-fork": {
-    "sessionSnapshot": "om-compact",
-    "omCompactExtension": "~/projects/pi-extensions/pi-observational-memory/index.ts"
-  }
-}
-```
-
-`om-compact` first copies the full parent session to the fork temp session.
-It then starts a short-lived preflight worker process, loads only the configured `omCompactExtension`, runs Pi's native `session_before_compact` extension hook against that copy, and requires observational memory to return an `om.checkpoint` compaction.
-Other local/global extensions are not loaded during this preflight, so provider overrides and extension side effects stay out of the parent process.
-The preflight worker exits after compaction, so large temporary session state is released before the parent continues.
+Fork snapshots strip tool calls, tool results, bash execution messages, assistant thinking blocks, custom messages, and branch summaries.
 The parent session is not mutated.
-If `omCompactExtension` is unset, missing, or does not provide OM compaction, the fork fails instead of falling back to model-based native compaction.
-The actual fork child still runs as a separate Pi process on the compacted temp session.
+The actual fork child still runs as a separate Pi process on the filtered temp session.
 
 ## Config
 
@@ -192,8 +180,6 @@ offline: true
 sandbox.bashNetwork: false
 sandbox.tmpDir: /tmp
 costFooter: true
-sessionSnapshot: full
-omCompactExtension: unset
 environment: {}
 ```
 

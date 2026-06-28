@@ -151,8 +151,6 @@ export function registerForkTool(pi: ExtensionAPI): void {
         onUpdate,
         makeDetails,
         effort,
-        sessionSnapshot: config.sessionSnapshot,
-        omCompactExtension: config.omCompactExtension,
         resolveContextWindow: (provider, model) => resolveModelContextWindow(ctx.modelRegistry, provider, model),
       });
 
