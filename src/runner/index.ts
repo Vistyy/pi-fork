@@ -12,7 +12,7 @@ import * as path from "node:path";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { buildChildEnv, PI_FORK_SANDBOX_HOST_TMPDIR_ENV, PI_FORK_SANDBOX_TMPDIR_ENV } from "./env.js";
 import { buildForkTaskPrompt } from "./prompt.js";
-import { DEFAULT_SANDBOX_CONFIG, type ForkSandboxConfig } from "../config.js";
+import { DEFAULT_SANDBOX_CONFIG, type ForkActivationConfig, type ForkSandboxConfig } from "../config.js";
 import { type ForkDetails, type ForkEffort, type ForkEffortProfile, type ForkEffortState, type ForkResult, emptyUsage, normalizeCompletedResult } from "../core/types.js";
 import { parseInheritedCliArgs } from "./cli.js";
 import { processPiJsonLine } from "../child-events/index.js";
@@ -24,9 +24,21 @@ const SIGKILL_TIMEOUT_MS = 5000;
 type OnUpdateCallback = (partial: AgentToolResult<ForkDetails>) => void;
 export type ContextWindowResolver = (provider?: string, model?: string) => number | undefined;
 
-export function resolvePiSpawn(): { command: string; prefixArgs: string[] } {
+export function resolvePiSpawn(
+  cwd = process.cwd(),
+  activation: ForkActivationConfig | null = null,
+): { command: string; prefixArgs: string[] } {
   const configured = process.env.PI_FORK_PI_COMMAND?.trim();
-  return { command: configured || "pi", prefixArgs: [] };
+  const piCommand = configured || "pi";
+  if (!activation) return { command: piCommand, prefixArgs: [] };
+
+  return {
+    command: activation.command,
+    prefixArgs: [
+      ...activation.args.map((arg) => arg.replaceAll("{cwd}", cwd)),
+      piCommand,
+    ],
+  };
 }
 
 function createForkSessionTempFile(): { dir: string; filePath: string } {
@@ -113,6 +125,7 @@ export interface RunForkOptions {
   writeForkSessionSnapshot?: (filePath: string) => boolean;
   extensions?: string[] | null;
   environment?: Record<string, string>;
+  activation?: ForkActivationConfig | null;
   tools?: string | null;
   offline?: boolean;
   sandbox?: ForkSandboxConfig;
@@ -131,6 +144,7 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
     writeForkSessionSnapshot,
     extensions = null,
     environment = {},
+    activation = null,
     tools = null,
     offline = true,
     sandbox,
@@ -227,7 +241,7 @@ export async function runFork(opts: RunForkOptions): Promise<ForkResult> {
     let wasAborted = false;
 
     const exitCode = await new Promise<number>((resolve) => {
-      const { command, prefixArgs } = resolvePiSpawn();
+      const { command, prefixArgs } = resolvePiSpawn(cwd, activation);
       const proc = spawn(command, [...prefixArgs, ...piArgs], {
         cwd,
         shell: false,

@@ -4,12 +4,16 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_SANDBOX_CONFIG, loadConfig, type ForkSandboxConfig } from "./config.js";
 import { PI_FORK_SANDBOX_HOST_TMPDIR_ENV, PI_FORK_SANDBOX_TMPDIR_ENV } from "./runner/env.js";
 
+const DEFAULT_SANDBOX_PATH = "/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin";
+const SANDBOX_PATH_EXPR = `\${PATH:-${DEFAULT_SANDBOX_PATH}}`;
+
 const RAW_SHELL_ARGS = new Set([
   "$PWD",
   "${TERM:-xterm-256color}",
   "${LANG:-C.UTF-8}",
   "${LC_ALL:-C.UTF-8}",
-  "/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin",
+  DEFAULT_SANDBOX_PATH,
+  SANDBOX_PATH_EXPR,
 ]);
 
 const CA_BUNDLE_SANDBOX_PATH = "/tmp/pi-fork-ca-bundle.crt";
@@ -175,7 +179,7 @@ export function buildBwrapArgs(sandboxConfig: Partial<ForkSandboxRuntimeConfig> 
     "--setenv", "TERM", "${TERM:-xterm-256color}",
     "--setenv", "LANG", "${LANG:-C.UTF-8}",
     "--setenv", "LC_ALL", "${LC_ALL:-C.UTF-8}",
-    "--setenv", "PATH", "/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin",
+    "--setenv", "PATH", SANDBOX_PATH_EXPR,
   ];
 }
 

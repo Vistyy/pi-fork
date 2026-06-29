@@ -16,6 +16,14 @@ export interface ForkSandboxConfig {
   tmpDir: string;
 }
 
+export interface ForkActivationConfig {
+  /** Command that activates the child process environment before running Pi. */
+  command: string;
+
+  /** Arguments passed before the Pi command. Use {cwd} to insert the fork cwd. */
+  args: string[];
+}
+
 export interface ForkConfig {
   /**
    * Extensions to load in child fork processes.
@@ -27,6 +35,9 @@ export interface ForkConfig {
 
   /** Environment variables to overlay onto child fork processes. */
   environment: Record<string, string>;
+
+  /** Optional wrapper that activates the child process environment before running Pi. */
+  activation: ForkActivationConfig | null;
 
   /**
    * Tool allowlist for child fork processes.
@@ -62,6 +73,7 @@ export const DEFAULT_SANDBOX_CONFIG: ForkSandboxConfig = {
 export const DEFAULT_CONFIG: ForkConfig = {
   extensions: [],
   environment: {},
+  activation: null,
   tools: null,
   offline: true,
   sandbox: DEFAULT_SANDBOX_CONFIG,
@@ -148,6 +160,25 @@ function parseTools(raw: unknown): string | null | undefined {
   if (names.length === 0) return "";
   if (!names.every((name) => /^[a-zA-Z0-9_-]+$/.test(name))) return undefined;
   return names.join(",");
+}
+
+function parseActivation(raw: unknown): ForkActivationConfig | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null) return null;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+
+  const config = raw as Record<string, unknown>;
+  const command = typeof config.command === "string" ? config.command.trim() : "";
+  if (!command || command.includes("\0")) return undefined;
+  if (!Array.isArray(config.args)) return undefined;
+
+  const args: string[] = [];
+  for (const arg of config.args) {
+    if (typeof arg !== "string" || arg.includes("\0")) return undefined;
+    args.push(arg);
+  }
+
+  return { command, args };
 }
 
 function parseSandboxTmpDir(raw: unknown): string | undefined {
@@ -253,6 +284,7 @@ function readNamespacedConfig(settingsPath: string, baseDir: string): ParsedFork
     const extensions = parseExtensions(config.extensions, baseDir);
     const environment = parseEnvironment(config.environment);
     const tools = parseTools(config.tools);
+    const activation = parseActivation(config.activation);
     const parsed: ParsedForkConfig = {};
     const defaultEffort = parseDefaultEffort(config.defaultEffort);
     const effortProfiles = parseEffortProfiles(config.effortProfiles);
@@ -260,6 +292,7 @@ function readNamespacedConfig(settingsPath: string, baseDir: string): ParsedFork
     if (extensions !== undefined) parsed.extensions = extensions;
     if (environment !== undefined) parsed.environment = environment;
     if (tools !== undefined) parsed.tools = tools;
+    if (activation !== undefined) parsed.activation = activation;
     if (typeof config.offline === "boolean") parsed.offline = config.offline;
     if (sandbox !== undefined) parsed.sandbox = sandbox;
     if (typeof config.costFooter === "boolean") parsed.costFooter = config.costFooter;

@@ -20,7 +20,7 @@ pi -e /home/syzom/projects/pi-extensions/pi-fork
 ## Install from GitHub
 
 ```bash
-pi install git:github.com/Vistyy/pi-fork@v0.1.4
+pi install git:github.com/Vistyy/pi-fork@v0.1.6
 ```
 
 ## Tool
@@ -139,7 +139,7 @@ The actual fork child still runs as a separate Pi process on the filtered temp s
 
 Config goes under `pi-fork` in `~/.pi/agent/settings.json` or `.pi/settings.json`.
 
-Precedence is: defaults < global `~/.pi/agent/settings.json` < project `.pi/settings.json`. Project settings can intentionally override fork tools, extensions, sandbox options, and environment for that project.
+Precedence is: defaults < global `~/.pi/agent/settings.json` < project `.pi/settings.json`. Project settings can intentionally override fork tools, extensions, activation, sandbox options, and environment for that project.
 
 ```json
 {
@@ -148,6 +148,10 @@ Precedence is: defaults < global `~/.pi/agent/settings.json` < project `.pi/sett
     "costFooter": true,
     "environment": {
       "MY_MODE": "fork"
+    },
+    "activation": {
+      "command": "direnv",
+      "args": ["exec", "{cwd}"]
     },
     "defaultEffort": "balanced",
     "effortProfiles": {
@@ -181,7 +185,13 @@ sandbox.bashNetwork: false
 sandbox.tmpDir: /tmp
 costFooter: true
 environment: {}
+activation: null
 ```
+
+`activation` wraps child Pi startup in a project environment activator.
+Use `{cwd}` in activation arguments to insert the fork working directory.
+For example, `{"command":"direnv","args":["exec","{cwd}"]}` launches child Pi as `direnv exec <cwd> pi ...` so forks see the same project shell as normal repo commands.
+Project settings can set `activation` to `null` to disable a global activation wrapper.
 
 `offline: true` sets `PI_OFFLINE=1` for children. This is Pi's internal offline mode; it skips version checks and tool binary downloads. It does not sandbox network access for `bash` or child extensions. Set `offline: false` when child extension sources need network install behavior.
 

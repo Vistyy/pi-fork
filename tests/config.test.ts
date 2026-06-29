@@ -30,6 +30,7 @@ describe("loadConfig", () => {
 
     expect(loadConfig(cwd).extensions).toEqual([]);
     expect(loadConfig(cwd).tools).toBeNull();
+    expect(loadConfig(cwd).activation).toBeNull();
     expect(loadConfig(cwd).sandbox).toEqual({
       bashNetwork: false,
       tmpDir: "/tmp",
@@ -109,6 +110,44 @@ describe("loadConfig", () => {
     });
 
     expect(loadConfig(cwd).environment).toEqual({ A: "global", B: "project", C: "project" });
+  });
+
+  it("loads activation config", () => {
+    const cwd = tempDir("cwd");
+    const agentDir = tempDir("agent");
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    writeJson(join(agentDir, "settings.json"), {
+      "pi-fork": { activation: { command: "direnv", args: ["exec", "{cwd}"] } },
+    });
+
+    expect(loadConfig(cwd).activation).toEqual({ command: "direnv", args: ["exec", "{cwd}"] });
+  });
+
+  it("allows project config to disable global activation", () => {
+    const cwd = tempDir("cwd");
+    const agentDir = tempDir("agent");
+    const projectSettingsDir = join(cwd, ".pi");
+    mkdirSync(projectSettingsDir, { recursive: true });
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    writeJson(join(agentDir, "settings.json"), {
+      "pi-fork": { activation: { command: "direnv", args: ["exec", "{cwd}"] } },
+    });
+    writeJson(join(projectSettingsDir, "settings.json"), {
+      "pi-fork": { activation: null },
+    });
+
+    expect(loadConfig(cwd).activation).toBeNull();
+  });
+
+  it("ignores malformed activation config", () => {
+    const cwd = tempDir("cwd");
+    const agentDir = tempDir("agent");
+    process.env.PI_CODING_AGENT_DIR = agentDir;
+    writeJson(join(agentDir, "settings.json"), {
+      "pi-fork": { activation: { command: "direnv", args: ["exec", 123] } },
+    });
+
+    expect(loadConfig(cwd).activation).toBeNull();
   });
 
   it("merges sandbox config separately from offline mode", () => {

@@ -39,7 +39,7 @@ describe("sandbox command wrapper", () => {
       "--setenv", "TERM", "${TERM:-xterm-256color}",
       "--setenv", "LANG", "${LANG:-C.UTF-8}",
       "--setenv", "LC_ALL", "${LC_ALL:-C.UTF-8}",
-      "--setenv", "PATH", "/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin",
+      "--setenv", "PATH", "${PATH:-/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin}",
       "--ro-bind-try", "/etc/passwd", "/etc/passwd",
       "--ro-bind-try", "/etc/group", "/etc/group",
       "--ro-bind-try", "/etc/nsswitch.conf", "/etc/nsswitch.conf",

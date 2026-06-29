@@ -144,6 +144,7 @@ export function registerForkTool(pi: ExtensionAPI): void {
         writeForkSessionSnapshot: (filePath) => writeForkSessionSnapshotJsonl(ctx.sessionManager, filePath),
         extensions: config.extensions,
         environment: config.environment,
+        activation: config.activation,
         tools: config.tools,
         offline: config.offline,
         sandbox: config.sandbox,
