@@ -19,8 +19,12 @@ Fork child context:
 function appendRuntimeNotes(prompt: string, options: ForkPromptOptions): string {
   if (!options.writableTmpDir) return prompt;
   return `${prompt}
-Runtime note:
-- If you need scratch files, downloads, clones, or quick experiments, use the writable temp directory: ${options.writableTmpDir}.
+Runtime notes:
+- Your writable temp directory is: ${options.writableTmpDir}.
+- Use it proactively for scratch files, downloads, clones, caches, extracted pages, and quick experiments.
+- Before using web_search, web_fetch, or fetching/cloning from the network, check whether the needed artifact is already available in the workspace or writable temp directory.
+- Prefer local workspace and temp artifacts over network access when they are available and relevant.
+- Put any newly downloaded, cloned, generated, or extracted material there so later steps in this fork can reuse it.
 `;
 }
 
